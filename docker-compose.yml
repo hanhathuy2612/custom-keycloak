@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:17
+    container_name: keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: change_me
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - kc_db_data:/var/lib/postgresql/data
+    networks: [kcnet]
+
+  keycloak:
+    image: keycloak/keycloak:26.3.5-0
+    container_name: keycloak
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      # Bootstrap admin (only used on first start)
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: change_me
+
+      # DB config
+      KC_DB: postgres
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: change_me
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+
+      # Recommended runtime flags via env
+      KC_PROXY: edge               # if you place a reverse proxy in front
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      # Hostname settings (adjust to your domain)
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "false"  # set true when terminating TLS at Keycloak
+
+    command:
+      - start
+      - --http-enabled=true
+      - --http-port=8080
+      - --hostname-strict=true
+      - --hostname-backchannel-dynamic=false   # <-- replaces the removed flag
+      - --import-realm
+
+    ports:
+      - "8080:8080"   # reverse proxy -> 8080; or expose directly for testing
+    volumes:
+      - kc_data:/opt/keycloak/data                  # persistent state
+      - ./realms:/opt/keycloak/data/import:ro       # put realm JSONs here (optional)
+      - ./themes:/opt/keycloak/themes:ro            # custom themes (optional)
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [kcnet]
+
+networks:
+  kcnet:
+
+volumes:
+  kc_db_data:
+  kc_data:
