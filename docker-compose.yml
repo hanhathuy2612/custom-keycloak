@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - kc_db_data:/var/lib/postgresql/data
+      - ./db_data:/var/lib/postgresql/data
     networks: [kcnet]
 
   keycloak:
@@ -59,7 +59,7 @@ services:
     ports:
       - "8080:8080"   # reverse proxy -> 8080; or expose directly for testing
     volumes:
-      - kc_data:/opt/keycloak/data                  # persistent state
+      - ./data:/opt/keycloak/data                  # persistent state
       - ./realms:/opt/keycloak/data/import:ro       # put realm JSONs here (optional)
       - ./themes:/opt/keycloak/themes:ro            # custom themes (optional)
     healthcheck:
